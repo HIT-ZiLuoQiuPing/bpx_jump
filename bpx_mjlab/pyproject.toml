@@ -1,0 +1,15 @@
+[project]
+name = "bpx-mjlab"
+version = "0.1.0"
+description = "BPX quadruped velocity training with mjlab"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+  "mjlab>=1.1.0",
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project.entry-points."mjlab.tasks"]
+bpx_mjlab = "bpx_mjlab"

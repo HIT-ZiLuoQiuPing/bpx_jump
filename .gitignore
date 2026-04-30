@@ -1,0 +1,38 @@
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Python 包构建结果
+*.egg-info/
+dist/
+build/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# IDE 配置
+.vscode/
+.idea/
+
+# 强化学习训练日志
+bpx_mjlab/logs/
+bpx_mjlab/wandb/
+
+# TensorBoard / wandb 日志
+events.out.tfevents.*
+wandb/
+
+# 模型权重和导出模型
+*.pt
+*.pth
+*.onnx
+*.ckpt
+
+# 临时文件
+*.log
+*.tmp
+.DS_Store

@@ -1,0 +1,175 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="bpx">
+  <compiler angle="radian" meshdir="meshes" autolimits="true" />
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.18 0.18 0.18" rgb2="0.28 0.28 0.28" width="512" height="512" />
+    <material name="grid_mat" texture="grid" texrepeat="8 8" reflectance="0.05" />
+    <mesh name="mesh_0" file="bpx_body_001.obj" />
+    <material name="mat_bpx_body_Material_001_0_0_0_1" rgba="0 0 0 1" specular="0.35" shininess="0.4" />
+    <mesh name="mesh_1" file="bpx_body_002.obj" />
+    <material name="mat_bpx_body_Material_002_0_8_0_8_0_8_1" rgba="0.8 0.8 0.8 1" specular="0.35" shininess="0.4" />
+    <mesh name="mesh_2" file="bpx_body_004.obj" />
+    <material name="mat_bpx_body_Material_004_0_0_799999_0_113149_1" rgba="0 0.799999 0.113149 1" specular="0.35" shininess="0.4" />
+    <mesh name="mesh_3" file="hip_001.obj" />
+    <material name="mat_hip_Material_001_1_1_1_1" rgba="1 1 1 1" specular="0.35" shininess="0.4" />
+    <mesh name="mesh_4" file="l_thigh_001.obj" />
+    <material name="mat_l_thigh_Material_001_1_1_1_1" rgba="1 1 1 1" specular="0.35" shininess="0.4" />
+    <mesh name="mesh_5" file="calf_001.obj" />
+    <material name="mat_calf_Material_001_1_1_1_1" rgba="1 1 1 1" specular="0.35" shininess="0.4" />
+    <mesh name="mesh_6" file="calf_002.obj" />
+    <material name="mat_calf_Material_002_0_0_0_1" rgba="0 0 0 1" specular="0.35" shininess="0.4" />
+    <mesh name="mesh_7" file="r_thigh_001.obj" />
+    <material name="mat_r_thigh_Material_001_1_1_1_1" rgba="1 1 1 1" specular="0.35" shininess="0.4" />
+  </asset>
+  <worldbody>
+    <light name="sun" pos="1.5 -1.5 2.5" dir="-0.4 0.4 -1" directional="true" diffuse="0.9 0.9 0.9" specular="0.2 0.2 0.2" />
+    <geom name="floor" type="plane" size="3 3 0.1" material="grid_mat" />
+    <body name="torso" pos="0 0 0.42">
+      <inertial mass="3.309" pos="0.0008028 -4.574e-06 -0.004214" fullinertia="0.005766 0.01547 0.01647 -1.985e-07 -7.242e-05 -8.15e-08" />
+      <geom name="torso_collision_0" group="3" type="box" size="0.18 0.08 0.075" />
+      <geom name="torso_collision_1" group="3" pos="0.285 0 0" type="box" size="0.005 0.065 0.0125" />
+      <geom name="torso_collision_2" group="3" pos="-0.285 0 0" type="box" size="0.005 0.065 0.0125" />
+      <geom name="torso_visual_0_0" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_0" material="mat_bpx_body_Material_001_0_0_0_1" />
+      <geom name="torso_visual_0_1" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_1" material="mat_bpx_body_Material_002_0_8_0_8_0_8_1" />
+      <geom name="torso_visual_0_2" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_2" material="mat_bpx_body_Material_004_0_0_799999_0_113149_1" />
+      <freejoint name="base_freejoint" />
+      <body name="fl_hip_link" pos="0.2432 0.056 0">
+        <inertial mass="0.588" pos="-0.06505 0 0" fullinertia="9.195e-05 4.998e-05 5.084e-05 0 0 0" />
+        <geom name="fl_hip_link_visual_0" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_3" material="mat_hip_Material_001_1_1_1_1" />
+        <joint name="fl_hip_roll_joint" pos="0 0 0" type="hinge" axis="1 0 0" range="-0.8727 0.8727" />
+        <body name="fl_thigh_link" pos="0 0.1089 0">
+          <inertial mass="1.74" pos="-0.006553 -0.02491 -0.06967" fullinertia="0.001874 0.002176 0.0003893 4.092e-06 -6.186e-05 2.971e-05" />
+          <geom name="fl_thigh_link_collision_0" group="3" pos="0 -0.025 0" quat="0.707105483 0.70710808 0 0" type="cylinder" size="0.04 0.04" />
+          <geom name="fl_thigh_link_collision_1" group="3" pos="-0.02 0 -0.128" type="box" size="0.02 0.011 0.075" />
+          <geom name="fl_thigh_link_visual_0" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_4" material="mat_l_thigh_Material_001_1_1_1_1" />
+          <joint name="fl_hip_pitch_joint" pos="0 0 0" type="hinge" axis="0 1 0" range="-0.7854 2.6066" />
+          <body name="fl_calf_link" pos="0 0 -0.23">
+            <inertial mass="0.294" pos="0.005945 0 -0.1404" fullinertia="0.001489 0.001513 6.363e-05 0 0.0001047 0" />
+            <geom name="fl_calf_link_collision_0" group="3" pos="0.015 0 -0.11" quat="0.997564969 0 -0.0697433357 0" type="box" size="0.009 0.0075 0.09" />
+            <geom name="fl_calf_link_collision_1" group="3" pos="0.021 0 -0.22" quat="0.997564969 0 0.0697433357 0" type="box" size="0.0125 0.01 0.025" />
+            <geom name="fl_calf_link_visual_0_0" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_5" material="mat_calf_Material_001_1_1_1_1" />
+            <geom name="fl_calf_link_visual_0_1" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_6" material="mat_calf_Material_002_0_0_0_1" />
+            <joint name="fl_knee_joint" pos="0 0 0" type="hinge" axis="0 1 0" range="-2.7531 -0.5539" />
+            <body name="fl_toe_link" pos="0 0 -0.2427">
+              <geom name="fl_toe_link_collision_0" group="3" quat="0.707105483 0.70710808 0 0" type="cylinder" size="0.027 0.015" />
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="fr_hip_link" pos="0.2432 -0.056 0">
+        <inertial mass="0.588" pos="-0.06505 0 0" fullinertia="9.195e-05 4.998e-05 5.084e-05 0 0 0" />
+        <geom name="fr_hip_link_visual_0" group="1" contype="0" conaffinity="0" quat="-3.6732051e-06 1 0 -0" type="mesh" mesh="mesh_3" material="mat_hip_Material_001_1_1_1_1" />
+        <joint name="fr_hip_roll_joint" pos="0 0 0" type="hinge" axis="1 0 0" range="-0.8727 0.8727" />
+        <body name="fr_thigh_link" pos="0 -0.1089 0">
+          <inertial mass="1.74" pos="-0.006553 0.02491 -0.06967" fullinertia="0.001874 0.002176 0.0003893 -4.092e-06 -6.186e-05 -2.971e-05" />
+          <geom name="fr_thigh_link_collision_0" group="3" pos="0 0.025 0" quat="0.707105483 0.70710808 0 0" type="cylinder" size="0.04 0.04" />
+          <geom name="fr_thigh_link_collision_1" group="3" pos="-0.02 0 -0.128" type="box" size="0.02 0.011 0.075" />
+          <geom name="fr_thigh_link_visual_0" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_7" material="mat_r_thigh_Material_001_1_1_1_1" />
+          <joint name="fr_hip_pitch_joint" pos="0 0 0" type="hinge" axis="0 1 0" range="-0.7854 2.6066" />
+          <body name="fr_calf_link" pos="0 0 -0.23">
+            <inertial mass="0.294" pos="0.005945 0 -0.1404" fullinertia="0.001489 0.001513 6.363e-05 0 0.0001047 0" />
+            <geom name="fr_calf_link_collision_0" group="3" pos="0.015 0 -0.11" quat="0.997564969 0 -0.0697433357 0" type="box" size="0.009 0.0075 0.09" />
+            <geom name="fr_calf_link_collision_1" group="3" pos="0.021 0 -0.22" quat="0.997564969 0 0.0697433357 0" type="box" size="0.0125 0.01 0.025" />
+            <geom name="fr_calf_link_visual_0_0" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_5" material="mat_calf_Material_001_1_1_1_1" />
+            <geom name="fr_calf_link_visual_0_1" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_6" material="mat_calf_Material_002_0_0_0_1" />
+            <joint name="fr_knee_joint" pos="0 0 0" type="hinge" axis="0 1 0" range="-2.7531 -0.5539" />
+            <body name="fr_toe_link" pos="0 0 -0.2427">
+              <geom name="fr_toe_link_collision_0" group="3" quat="0.707105483 0.70710808 0 0" type="cylinder" size="0.027 0.015" />
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="hl_hip_link" pos="-0.2432 0.056 0">
+        <inertial mass="0.588" pos="0.06505 0 0" fullinertia="9.195e-05 4.998e-05 5.084e-05 0 0 0" />
+        <geom name="hl_hip_link_visual_0" group="1" contype="0" conaffinity="0" quat="1.34924357e-11 -3.6732051e-06 1 -3.6732051e-06" type="mesh" mesh="mesh_3" material="mat_hip_Material_001_1_1_1_1" />
+        <joint name="hl_hip_roll_joint" pos="0 0 0" type="hinge" axis="1 0 0" range="-0.8727 0.8727" />
+        <body name="hl_thigh_link" pos="0 0.1089 0">
+          <inertial mass="1.74" pos="-0.006553 -0.02491 -0.06967" fullinertia="0.001874 0.002176 0.0003893 4.092e-06 -6.186e-05 2.971e-05" />
+          <geom name="hl_thigh_link_collision_0" group="3" pos="0 -0.025 0" quat="0.707105483 0.70710808 0 0" type="cylinder" size="0.04 0.04" />
+          <geom name="hl_thigh_link_collision_1" group="3" pos="-0.02 0 -0.128" type="box" size="0.02 0.011 0.075" />
+          <geom name="hl_thigh_link_visual_0" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_4" material="mat_l_thigh_Material_001_1_1_1_1" />
+          <joint name="hl_hip_pitch_joint" pos="0 0 0" type="hinge" axis="0 1 0" range="-0.7854 2.6066" />
+          <body name="hl_calf_link" pos="0 0 -0.23">
+            <inertial mass="0.294" pos="0.005945 0 -0.1404" fullinertia="0.001489 0.001513 6.363e-05 0 0.0001047 0" />
+            <geom name="hl_calf_link_collision_0" group="3" pos="0.015 0 -0.11" quat="0.997564969 0 -0.0697433357 0" type="box" size="0.009 0.0075 0.09" />
+            <geom name="hl_calf_link_collision_1" group="3" pos="0.021 0 -0.22" quat="0.997564969 0 0.0697433357 0" type="box" size="0.0125 0.01 0.025" />
+            <geom name="hl_calf_link_visual_0_0" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_5" material="mat_calf_Material_001_1_1_1_1" />
+            <geom name="hl_calf_link_visual_0_1" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_6" material="mat_calf_Material_002_0_0_0_1" />
+            <joint name="hl_knee_joint" pos="0 0 0" type="hinge" axis="0 1 0" range="-2.7531 -0.5539" />
+            <body name="hl_toe_link" pos="0 0 -0.2427">
+              <geom name="hl_toe_link_collision_0" group="3" quat="0.707105483 0.70710808 0 0" type="cylinder" size="0.027 0.015" />
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="hr_hip_link" pos="-0.2432 -0.056 0">
+        <inertial mass="0.588" pos="0.06505 0 0" fullinertia="9.195e-05 4.998e-05 5.084e-05 0 0 0" />
+        <geom name="hr_hip_link_visual_0" group="1" contype="0" conaffinity="0" quat="-3.6732051e-06 -0 0 1" type="mesh" mesh="mesh_3" material="mat_hip_Material_001_1_1_1_1" />
+        <joint name="hr_hip_roll_joint" pos="0 0 0" type="hinge" axis="1 0 0" range="-0.8727 0.8727" />
+        <body name="hr_thigh_link" pos="0 -0.1089 0">
+          <inertial mass="1.74" pos="-0.006553 0.02491 -0.06967" fullinertia="0.001874 0.002176 0.0003893 -4.092e-06 -6.186e-05 -2.971e-05" />
+          <geom name="hr_thigh_link_collision_0" group="3" pos="0 0.025 0" quat="0.707105483 0.70710808 0 0" type="cylinder" size="0.04 0.04" />
+          <geom name="hr_thigh_link_collision_1" group="3" pos="-0.02 0 -0.128" type="box" size="0.02 0.011 0.075" />
+          <geom name="hr_thigh_link_visual_0" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_7" material="mat_r_thigh_Material_001_1_1_1_1" />
+          <joint name="hr_hip_pitch_joint" pos="0 0 0" type="hinge" axis="0 1 0" range="-0.7854 2.6066" />
+          <body name="hr_calf_link" pos="0 0 -0.23">
+            <inertial mass="0.294" pos="0.005945 0 -0.1404" fullinertia="0.001489 0.001513 6.363e-05 0 0.0001047 0" />
+            <geom name="hr_calf_link_collision_0" group="3" pos="0.015 0 -0.11" quat="0.997564969 0 -0.0697433357 0" type="box" size="0.009 0.0075 0.09" />
+            <geom name="hr_calf_link_collision_1" group="3" pos="0.021 0 -0.22" quat="0.997564969 0 0.0697433357 0" type="box" size="0.0125 0.01 0.025" />
+            <geom name="hr_calf_link_visual_0_0" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_5" material="mat_calf_Material_001_1_1_1_1" />
+            <geom name="hr_calf_link_visual_0_1" group="1" contype="0" conaffinity="0" type="mesh" mesh="mesh_6" material="mat_calf_Material_002_0_0_0_1" />
+            <joint name="hr_knee_joint" pos="0 0 0" type="hinge" axis="0 1 0" range="-2.7531 -0.5539" />
+            <body name="hr_toe_link" pos="0 0 -0.2427">
+              <geom name="hr_toe_link_collision_0" group="3" quat="0.707105483 0.70710808 0 0" type="cylinder" size="0.027 0.015" />
+            </body>
+          </body>
+        </body>
+      </body>
+      <site name="imu" pos="0 0 0" size="0.005" rgba="0 0 0 0" />
+    </body>
+  </worldbody>
+  <actuator>
+    <motor name="fl_hip_roll_joint_motor" joint="fl_hip_roll_joint" gear="1" ctrllimited="true" ctrlrange="-30 30" />
+    <motor name="fl_hip_pitch_joint_motor" joint="fl_hip_pitch_joint" gear="1" ctrllimited="true" ctrlrange="-30 30" />
+    <motor name="fl_knee_joint_motor" joint="fl_knee_joint" gear="1" ctrllimited="true" ctrlrange="-30 30" />
+    <motor name="fr_hip_roll_joint_motor" joint="fr_hip_roll_joint" gear="1" ctrllimited="true" ctrlrange="-30 30" />
+    <motor name="fr_hip_pitch_joint_motor" joint="fr_hip_pitch_joint" gear="1" ctrllimited="true" ctrlrange="-30 30" />
+    <motor name="fr_knee_joint_motor" joint="fr_knee_joint" gear="1" ctrllimited="true" ctrlrange="-30 30" />
+    <motor name="hl_hip_roll_joint_motor" joint="hl_hip_roll_joint" gear="1" ctrllimited="true" ctrlrange="-30 30" />
+    <motor name="hl_hip_pitch_joint_motor" joint="hl_hip_pitch_joint" gear="1" ctrllimited="true" ctrlrange="-30 30" />
+    <motor name="hl_knee_joint_motor" joint="hl_knee_joint" gear="1" ctrllimited="true" ctrlrange="-30 30" />
+    <motor name="hr_hip_roll_joint_motor" joint="hr_hip_roll_joint" gear="1" ctrllimited="true" ctrlrange="-30 30" />
+    <motor name="hr_hip_pitch_joint_motor" joint="hr_hip_pitch_joint" gear="1" ctrllimited="true" ctrlrange="-30 30" />
+    <motor name="hr_knee_joint_motor" joint="hr_knee_joint" gear="1" ctrllimited="true" ctrlrange="-30 30" />
+  </actuator>
+  <sensor>
+    <jointpos name="fl_hip_roll_joint_pos" joint="fl_hip_roll_joint" />
+    <jointvel name="fl_hip_roll_joint_vel" joint="fl_hip_roll_joint" />
+    <jointpos name="fl_hip_pitch_joint_pos" joint="fl_hip_pitch_joint" />
+    <jointvel name="fl_hip_pitch_joint_vel" joint="fl_hip_pitch_joint" />
+    <jointpos name="fl_knee_joint_pos" joint="fl_knee_joint" />
+    <jointvel name="fl_knee_joint_vel" joint="fl_knee_joint" />
+    <jointpos name="fr_hip_roll_joint_pos" joint="fr_hip_roll_joint" />
+    <jointvel name="fr_hip_roll_joint_vel" joint="fr_hip_roll_joint" />
+    <jointpos name="fr_hip_pitch_joint_pos" joint="fr_hip_pitch_joint" />
+    <jointvel name="fr_hip_pitch_joint_vel" joint="fr_hip_pitch_joint" />
+    <jointpos name="fr_knee_joint_pos" joint="fr_knee_joint" />
+    <jointvel name="fr_knee_joint_vel" joint="fr_knee_joint" />
+    <jointpos name="hl_hip_roll_joint_pos" joint="hl_hip_roll_joint" />
+    <jointvel name="hl_hip_roll_joint_vel" joint="hl_hip_roll_joint" />
+    <jointpos name="hl_hip_pitch_joint_pos" joint="hl_hip_pitch_joint" />
+    <jointvel name="hl_hip_pitch_joint_vel" joint="hl_hip_pitch_joint" />
+    <jointpos name="hl_knee_joint_pos" joint="hl_knee_joint" />
+    <jointvel name="hl_knee_joint_vel" joint="hl_knee_joint" />
+    <jointpos name="hr_hip_roll_joint_pos" joint="hr_hip_roll_joint" />
+    <jointvel name="hr_hip_roll_joint_vel" joint="hr_hip_roll_joint" />
+    <jointpos name="hr_hip_pitch_joint_pos" joint="hr_hip_pitch_joint" />
+    <jointvel name="hr_hip_pitch_joint_vel" joint="hr_hip_pitch_joint" />
+    <jointpos name="hr_knee_joint_pos" joint="hr_knee_joint" />
+    <jointvel name="hr_knee_joint_vel" joint="hr_knee_joint" />
+    <framequat name="body_quat" objtype="site" objname="imu" />
+    <gyro name="body_gyro" site="imu" />
+    <accelerometer name="body_acc" site="imu" />
+    <framepos name="body_pos" objtype="site" objname="imu" />
+  </sensor>
+</mujoco>
