@@ -19,6 +19,7 @@ env/
 .idea/
 
 # 强化学习训练日志
+logs/
 bpx_mjlab/logs/
 bpx_mjlab/wandb/
 
