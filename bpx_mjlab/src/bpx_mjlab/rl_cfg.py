@@ -1,8 +1,25 @@
+from dataclasses import dataclass, field
+
 from mjlab.rl import (
     RslRlModelCfg,
     RslRlOnPolicyRunnerCfg,
     RslRlPpoAlgorithmCfg,
 )
+
+
+@dataclass
+class BpxJumpSymmetryCfg:
+    use_data_augmentation: bool = True
+    use_mirror_loss: bool = True
+    data_augmentation_func: str = (
+        "bpx_mjlab.symmetry:jump_mirror_data_augmentation"
+    )
+    mirror_loss_coeff: float = 0.2
+
+
+@dataclass
+class BpxJumpPpoAlgorithmCfg(RslRlPpoAlgorithmCfg):
+    symmetry_cfg: BpxJumpSymmetryCfg = field(default_factory=BpxJumpSymmetryCfg)
 
 
 def bpx_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
@@ -39,7 +56,7 @@ def bpx_jump_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
         critic=RslRlModelCfg(
             hidden_dims=(512, 256, 128),
         ),
-        algorithm=RslRlPpoAlgorithmCfg(
+        algorithm=BpxJumpPpoAlgorithmCfg(
             entropy_coef=0.01,
         ),
         experiment_name="bpx_jump_flat",

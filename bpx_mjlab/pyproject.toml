@@ -11,5 +11,9 @@ dependencies = [
 requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
+[project.scripts]
+bpx-train = "bpx_mjlab.scripts.train:main"
+bpx-play = "bpx_mjlab.scripts.play:main"
+
 [project.entry-points."mjlab.tasks"]
 bpx_mjlab = "bpx_mjlab"

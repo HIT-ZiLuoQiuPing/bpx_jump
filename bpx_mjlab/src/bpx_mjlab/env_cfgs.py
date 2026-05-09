@@ -270,7 +270,7 @@ def bpx_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 def bpx_jump_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     cfg = bpx_flat_env_cfg(play=play)
 
-    cfg.episode_length_s = int(1e9) if play else 8.0
+    cfg.episode_length_s = int(1e9) if play else 4.0
     cfg.scene.extent = 2.5
     cfg.sim.nconmax = max(cfg.sim.nconmax, 192)
     cfg.sim.njmax = max(cfg.sim.njmax, 800)
@@ -284,8 +284,10 @@ def bpx_jump_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     cfg.commands = {
         "jump": jump_mdp.InPlaceJumpCommandCfg(
             entity_name="robot",
-            resampling_time_range=(2.0, 2.0),
+            resampling_time_range=(4.0, 4.0),
             period_s=2.0,
+            repeat=False,
+            jump_duration_s=2.0,
             target_height_delta_range=(0.12, 0.22),
             target_dx_range=(0.0, 0.0),
             debug_vis=True,
@@ -300,6 +302,20 @@ def bpx_jump_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         ".*_hip_pitch_joint": 1.25 * base_scale,
         ".*_knee_joint": 1.45 * base_scale,
     }
+    jump_joint_names = (
+        "fl_hip_roll_joint",
+        "fl_hip_pitch_joint",
+        "fl_knee_joint",
+        "fr_hip_roll_joint",
+        "fr_hip_pitch_joint",
+        "fr_knee_joint",
+        "hl_hip_roll_joint",
+        "hl_hip_pitch_joint",
+        "hl_knee_joint",
+        "hr_hip_roll_joint",
+        "hr_hip_pitch_joint",
+        "hr_knee_joint",
+    )
 
     for obs_group_name, obs_group in cfg.observations.items():
         terms = getattr(obs_group, "terms", None)
@@ -373,6 +389,27 @@ def bpx_jump_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                 "sensor_name": "feet_ground_contact",
             },
         ),
+        "landing_rebound": RewardTermCfg(
+            func=jump_mdp.landing_rebound_penalty,
+            weight=-1.2,
+            params={
+                "command_name": "jump",
+                "sensor_name": "feet_ground_contact",
+            },
+        ),
+        "post_landing_hold": RewardTermCfg(
+            func=jump_mdp.post_landing_hold_reward,
+            weight=1.0,
+            params={
+                "command_name": "jump",
+                "sensor_name": "feet_ground_contact",
+                "asset_cfg": SceneEntityCfg(
+                    "robot",
+                    joint_names=jump_joint_names,
+                    preserve_order=True,
+                ),
+            },
+        ),
         "upright": RewardTermCfg(
             func=mdp.upright,
             weight=0.8,
@@ -398,6 +435,23 @@ def bpx_jump_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             weight=-2.0,
             params={"command_name": "jump"},
         ),
+        "left_right_joint_symmetry": RewardTermCfg(
+            func=jump_mdp.left_right_joint_symmetry_penalty,
+            weight=-0.8,
+            params={
+                "command_name": "jump",
+                "asset_cfg": SceneEntityCfg(
+                    "robot",
+                    joint_names=jump_joint_names,
+                    preserve_order=True,
+                ),
+            },
+        ),
+        "left_right_action_symmetry": RewardTermCfg(
+            func=jump_mdp.left_right_action_symmetry_penalty,
+            weight=-0.25,
+            params={"command_name": "jump"},
+        ),
         "horizontal_velocity": RewardTermCfg(
             func=jump_mdp.horizontal_velocity_penalty,
             weight=-0.4,
@@ -409,13 +463,16 @@ def bpx_jump_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         ),
         "dof_pos_limits": RewardTermCfg(func=mdp.joint_pos_limits, weight=-1.0),
         "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.08),
+        "action_acc_l2": RewardTermCfg(func=mdp.action_acc_l2, weight=-0.015),
         "air_time": RewardTermCfg(
-            func=mdp.feet_air_time,
-            weight=0.15,
+            func=jump_mdp.phase_gated_air_time_reward,
+            weight=0.02,
             params={
+                "command_name": "jump",
                 "sensor_name": "feet_ground_contact",
                 "threshold_min": 0.08,
-                "threshold_max": 0.65,
+                "threshold_max": 0.55,
+                "phase_range": (0.38, 0.62),
             },
         ),
         "soft_landing": RewardTermCfg(
