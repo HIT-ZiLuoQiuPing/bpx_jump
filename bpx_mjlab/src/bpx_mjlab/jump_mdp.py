@@ -111,7 +111,7 @@ class InPlaceJumpCommandCfg(CommandTermCfg):
     period_s: float = 2.0
     repeat: bool = True
     jump_duration_s: float = 2.0
-    target_height_delta_range: tuple[float, float] = (0.12, 0.22)
+    target_height_delta_range: tuple[float, float] = (0.20, 0.30)
     target_dx_range: tuple[float, float] = (0.0, 0.0)
 
     @dataclass
@@ -176,6 +176,12 @@ def _foot_contact(env: ManagerBasedRlEnv, sensor_name: str) -> torch.Tensor:
     sensor: ContactSensor = env.scene[sensor_name]
     assert sensor.data.found is not None
     return sensor.data.found > 0
+
+
+def _foot_contact_force(env: ManagerBasedRlEnv, sensor_name: str) -> torch.Tensor:
+    sensor: ContactSensor = env.scene[sensor_name]
+    assert sensor.data.force is not None
+    return sensor.data.force
 
 
 def base_height(
@@ -338,6 +344,48 @@ class peak_height_reward:
         return mask * score
 
 
+class peak_height_overshoot_penalty:
+    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRlEnv):
+        self.peak_height_delta = torch.zeros(env.num_envs, device=env.device)
+        self.prev_phase = torch.zeros(env.num_envs, device=env.device)
+
+    def reset(self, env_ids: torch.Tensor | slice | None) -> None:
+        if env_ids is None:
+            env_ids = slice(None)
+        self.peak_height_delta[env_ids] = 0.0
+        self.prev_phase[env_ids] = 0.0
+
+    def __call__(
+        self,
+        env: ManagerBasedRlEnv,
+        command_name: str,
+        tolerance: float = 0.035,
+        std: float = 0.06,
+        phase_range: tuple[float, float] = (0.50, 1.0),
+        asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+    ) -> torch.Tensor:
+        phase = _jump_phase(env, command_name)
+        height_delta = base_height_delta(env, command_name, asset_cfg).squeeze(1)
+        new_cycle = phase < (self.prev_phase - 0.2)
+        self.peak_height_delta = torch.where(
+            new_cycle,
+            height_delta,
+            torch.maximum(self.peak_height_delta, height_delta),
+        )
+
+        target_height = _jump_command(env, command_name)[:, 2]
+        overshoot = torch.relu(self.peak_height_delta - target_height - tolerance)
+        penalty = torch.square(overshoot / std)
+        mask = _phase_mask(phase, *phase_range)
+
+        env.extras["log"]["Metrics/peak_height_overshoot"] = torch.mean(
+            mask * overshoot
+        )
+
+        self.prev_phase = phase.detach().clone()
+        return mask * penalty
+
+
 class landing_stability_reward:
     def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRlEnv):
         self.prev_phase = torch.zeros(env.num_envs, device=env.device)
@@ -419,6 +467,7 @@ class landing_rebound_penalty:
         sensor_name: str,
         airborne_phase_start: float = 0.36,
         landing_phase_start: float = 0.70,
+        touchdown_contact_fraction: float = 0.25,
         height_tolerance: float = 0.015,
         airborne_weight: float = 1.0,
         upward_vel_weight: float = 2.5,
@@ -438,11 +487,17 @@ class landing_rebound_penalty:
         )
 
         contact = _foot_contact(env, sensor_name)
+        contact_fraction = torch.mean(contact.float(), dim=1)
         all_airborne = (~contact).all(dim=1)
         self.has_been_airborne |= all_airborne & (phase > airborne_phase_start)
 
         height_delta = base_height_delta(env, command_name, asset_cfg).squeeze(1)
-        landing_event = self.has_been_airborne & (phase > landing_phase_start) & (~self.has_landed)
+        landing_event = (
+            self.has_been_airborne
+            & (phase > landing_phase_start)
+            & (contact_fraction >= touchdown_contact_fraction)
+            & (~self.has_landed)
+        )
         self.landing_height_delta = torch.where(
             landing_event,
             height_delta,
@@ -476,6 +531,178 @@ class landing_rebound_penalty:
 
         self.prev_phase = phase.detach().clone()
         return active * penalty
+
+
+class post_landing_airborne_penalty:
+    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRlEnv):
+        self.prev_phase = torch.zeros(env.num_envs, device=env.device)
+        self.has_been_airborne = torch.zeros(
+            env.num_envs, dtype=torch.bool, device=env.device
+        )
+
+    def reset(self, env_ids: torch.Tensor | slice | None) -> None:
+        if env_ids is None:
+            env_ids = slice(None)
+        self.prev_phase[env_ids] = 0.0
+        self.has_been_airborne[env_ids] = False
+
+    def __call__(
+        self,
+        env: ManagerBasedRlEnv,
+        command_name: str,
+        sensor_name: str,
+        airborne_phase_start: float = 0.36,
+        landing_phase_start: float = 0.76,
+        height_tolerance: float = 0.04,
+        airborne_weight: float = 1.0,
+        upward_vz_weight: float = 3.0,
+        height_weight: float = 2.0,
+        asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+    ) -> torch.Tensor:
+        phase = _jump_phase(env, command_name)
+        new_cycle = phase < (self.prev_phase - 0.2)
+        self.has_been_airborne = torch.where(
+            new_cycle, torch.zeros_like(self.has_been_airborne), self.has_been_airborne
+        )
+
+        contact = _foot_contact(env, sensor_name)
+        contact_fraction = torch.mean(contact.float(), dim=1)
+        all_airborne = (~contact).all(dim=1)
+        self.has_been_airborne |= all_airborne & (phase > airborne_phase_start)
+
+        asset: Entity = env.scene[asset_cfg.name]
+        upward_vz = torch.clamp(asset.data.root_link_lin_vel_w[:, 2], min=0.0)
+        height_delta = base_height_delta(env, command_name, asset_cfg).squeeze(1)
+        excess_height = torch.relu(height_delta - height_tolerance)
+
+        active = self.has_been_airborne.float() * _phase_mask(
+            phase, landing_phase_start, 1.0
+        )
+        no_contact = 1.0 - contact_fraction
+        penalty = (
+            airborne_weight * no_contact
+            + upward_vz_weight * torch.square(upward_vz)
+            + height_weight * torch.square(excess_height)
+        )
+
+        env.extras["log"]["Metrics/post_landing_no_contact"] = torch.mean(
+            active * no_contact
+        )
+        env.extras["log"]["Metrics/post_landing_upward_vz"] = torch.mean(
+            active * upward_vz
+        )
+        env.extras["log"]["Metrics/post_landing_excess_height"] = torch.mean(
+            active * excess_height
+        )
+
+        self.prev_phase = phase.detach().clone()
+        return active * penalty
+
+
+class landing_absorption_reward:
+    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRlEnv):
+        self.prev_phase = torch.zeros(env.num_envs, device=env.device)
+        self.has_been_airborne = torch.zeros(
+            env.num_envs, dtype=torch.bool, device=env.device
+        )
+        self.has_touched_down = torch.zeros(
+            env.num_envs, dtype=torch.bool, device=env.device
+        )
+
+    def reset(self, env_ids: torch.Tensor | slice | None) -> None:
+        if env_ids is None:
+            env_ids = slice(None)
+        self.prev_phase[env_ids] = 0.0
+        self.has_been_airborne[env_ids] = False
+        self.has_touched_down[env_ids] = False
+
+    def __call__(
+        self,
+        env: ManagerBasedRlEnv,
+        command_name: str,
+        sensor_name: str,
+        airborne_phase_start: float = 0.36,
+        landing_phase_start: float = 0.70,
+        recovery_phase_start: float = 0.86,
+        touchdown_contact_fraction: float = 0.25,
+        target_height_delta: float = -0.035,
+        height_std: float = 0.055,
+        upward_vz_std: float = 0.18,
+        force_target: float = 85.0,
+        force_std: float = 85.0,
+        upright_std: float = 0.34,
+        action_rate_std: float = 0.65,
+        asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+    ) -> torch.Tensor:
+        phase = _jump_phase(env, command_name)
+        new_cycle = phase < (self.prev_phase - 0.2)
+        self.has_been_airborne = torch.where(
+            new_cycle, torch.zeros_like(self.has_been_airborne), self.has_been_airborne
+        )
+        self.has_touched_down = torch.where(
+            new_cycle, torch.zeros_like(self.has_touched_down), self.has_touched_down
+        )
+
+        contact = _foot_contact(env, sensor_name)
+        contact_fraction = torch.mean(contact.float(), dim=1)
+        all_airborne = (~contact).all(dim=1)
+        self.has_been_airborne |= all_airborne & (phase > airborne_phase_start)
+        self.has_touched_down |= (
+            self.has_been_airborne
+            & (phase > landing_phase_start)
+            & (contact_fraction >= touchdown_contact_fraction)
+        )
+
+        asset: Entity = env.scene[asset_cfg.name]
+        height_delta = base_height_delta(env, command_name, asset_cfg).squeeze(1)
+        upward_vz = torch.clamp(asset.data.root_link_lin_vel_w[:, 2], min=0.0)
+        tilt = torch.sum(torch.square(asset.data.projected_gravity_b[:, :2]), dim=1)
+        action_rate = torch.norm(
+            env.action_manager.action - env.action_manager.prev_action,
+            dim=1,
+        )
+
+        force = _foot_contact_force(env, sensor_name)
+        force_mag = torch.norm(force, dim=-1)
+        max_force = torch.max(force_mag, dim=1).values
+        mean_force = torch.mean(force_mag, dim=1)
+        excess_force = torch.relu(max_force - force_target)
+
+        height_score = torch.exp(
+            -torch.square(height_delta - target_height_delta) / (height_std**2)
+        )
+        vz_score = torch.exp(-torch.square(upward_vz) / (upward_vz_std**2))
+        force_score = torch.exp(-torch.square(excess_force) / (force_std**2))
+        upright_score = torch.exp(-tilt / (upright_std**2))
+        action_score = torch.exp(-torch.square(action_rate) / (action_rate_std**2))
+
+        active = self.has_touched_down.float() * _phase_mask(
+            phase, landing_phase_start, recovery_phase_start
+        )
+        score = contact_fraction * (
+            0.30 * force_score
+            + 0.25 * height_score
+            + 0.20 * vz_score
+            + 0.15 * upright_score
+            + 0.10 * action_score
+        )
+
+        env.extras["log"]["Metrics/landing_absorption_active"] = torch.mean(active)
+        env.extras["log"]["Metrics/landing_absorption_height_delta"] = torch.mean(
+            active * height_delta
+        )
+        env.extras["log"]["Metrics/landing_absorption_contact"] = torch.mean(
+            active * contact_fraction
+        )
+        env.extras["log"]["Metrics/landing_absorption_max_force"] = torch.mean(
+            active * max_force
+        )
+        env.extras["log"]["Metrics/landing_absorption_mean_force"] = torch.mean(
+            active * mean_force
+        )
+
+        self.prev_phase = phase.detach().clone()
+        return active * score
 
 
 class post_landing_hold_reward:

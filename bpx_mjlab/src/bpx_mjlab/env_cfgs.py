@@ -288,7 +288,7 @@ def bpx_jump_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             period_s=2.0,
             repeat=False,
             jump_duration_s=2.0,
-            target_height_delta_range=(0.12, 0.22),
+            target_height_delta_range=(0.20, 0.30),
             target_dx_range=(0.0, 0.0),
             debug_vis=True,
         )
@@ -357,8 +357,8 @@ def bpx_jump_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         ),
         "takeoff_velocity": RewardTermCfg(
             func=jump_mdp.takeoff_velocity_reward,
-            weight=2.0,
-            params={"command_name": "jump"},
+            weight=2.2,
+            params={"command_name": "jump", "target_vz": 1.05},
         ),
         "contact_release": RewardTermCfg(
             func=jump_mdp.contact_release_reward,
@@ -374,11 +374,17 @@ def bpx_jump_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             params={
                 "command_name": "jump",
                 "sensor_name": "feet_ground_contact",
+                "phase_range": (0.45, 0.62),
             },
         ),
         "peak_height": RewardTermCfg(
             func=jump_mdp.peak_height_reward,
             weight=2.5,
+            params={"command_name": "jump"},
+        ),
+        "peak_height_overshoot": RewardTermCfg(
+            func=jump_mdp.peak_height_overshoot_penalty,
+            weight=-0.35,
             params={"command_name": "jump"},
         ),
         "landing_stability": RewardTermCfg(
@@ -397,12 +403,29 @@ def bpx_jump_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                 "sensor_name": "feet_ground_contact",
             },
         ),
-        "post_landing_hold": RewardTermCfg(
-            func=jump_mdp.post_landing_hold_reward,
+        "post_landing_airborne": RewardTermCfg(
+            func=jump_mdp.post_landing_airborne_penalty,
+            weight=-0.9,
+            params={
+                "command_name": "jump",
+                "sensor_name": "feet_ground_contact",
+            },
+        ),
+        "landing_absorption": RewardTermCfg(
+            func=jump_mdp.landing_absorption_reward,
             weight=1.0,
             params={
                 "command_name": "jump",
                 "sensor_name": "feet_ground_contact",
+            },
+        ),
+        "post_landing_hold": RewardTermCfg(
+            func=jump_mdp.post_landing_hold_reward,
+            weight=0.9,
+            params={
+                "command_name": "jump",
+                "sensor_name": "feet_ground_contact",
+                "landing_phase_start": 0.86,
                 "asset_cfg": SceneEntityCfg(
                     "robot",
                     joint_names=jump_joint_names,
@@ -466,18 +489,18 @@ def bpx_jump_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "action_acc_l2": RewardTermCfg(func=mdp.action_acc_l2, weight=-0.015),
         "air_time": RewardTermCfg(
             func=jump_mdp.phase_gated_air_time_reward,
-            weight=0.02,
+            weight=0.01,
             params={
                 "command_name": "jump",
                 "sensor_name": "feet_ground_contact",
                 "threshold_min": 0.08,
                 "threshold_max": 0.55,
-                "phase_range": (0.38, 0.62),
+                "phase_range": (0.38, 0.56),
             },
         ),
         "soft_landing": RewardTermCfg(
             func=mdp.soft_landing,
-            weight=-2.0e-5,
+            weight=-1.0e-4,
             params={"sensor_name": "feet_ground_contact"},
         ),
     }
