@@ -512,6 +512,60 @@ def bpx_jump_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     return cfg
 
 
+def bpx_jump_directional_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    cfg = bpx_jump_flat_env_cfg(play=play)
+
+    cfg.scene.extent = 3.5
+    jump_cmd = cfg.commands["jump"]
+    assert isinstance(jump_cmd, jump_mdp.InPlaceJumpCommandCfg)
+    jump_cmd.target_height_delta_range = (0.18, 0.28)
+    jump_cmd.target_dx_range = (0.0, 0.0)
+    jump_cmd.target_dx_abs_range = (0.12, 0.28)
+
+    cfg.rewards["directional_takeoff_velocity"] = RewardTermCfg(
+        func=jump_mdp.directional_takeoff_velocity_reward,
+        weight=1.0,
+        params={
+            "command_name": "jump",
+            "phase_range": (0.24, 0.48),
+            "target_time": 0.55,
+            "velocity_std": 0.35,
+            "max_target_vx": 0.75,
+        },
+    )
+    cfg.rewards["target_dx_tracking"] = RewardTermCfg(
+        func=jump_mdp.target_dx_tracking_reward,
+        weight=2.0,
+        params={
+            "command_name": "jump",
+            "phase_range": (0.55, 1.0),
+            "x_std": 0.08,
+            "y_std": 0.06,
+        },
+    )
+    cfg.rewards["landing_stability"] = RewardTermCfg(
+        func=jump_mdp.directional_landing_stability_reward,
+        weight=1.5,
+        params={
+            "command_name": "jump",
+            "sensor_name": "feet_ground_contact",
+            "x_std": 0.10,
+            "y_std": 0.07,
+        },
+    )
+    cfg.rewards["xy_drift"] = RewardTermCfg(
+        func=jump_mdp.lateral_drift_penalty,
+        weight=-2.0,
+        params={"command_name": "jump"},
+    )
+    cfg.rewards["horizontal_velocity"] = RewardTermCfg(
+        func=jump_mdp.lateral_velocity_penalty,
+        weight=-0.35,
+    )
+
+    return cfg
+
+
 def bpx_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     cfg = bpx_flat_env_cfg(play=play)
 

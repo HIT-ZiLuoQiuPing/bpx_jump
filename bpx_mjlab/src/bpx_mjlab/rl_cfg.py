@@ -62,3 +62,10 @@ def bpx_jump_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
         experiment_name="bpx_jump_flat",
         max_iterations=12_000,
     )
+
+
+def bpx_jump_directional_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
+    cfg = bpx_jump_ppo_runner_cfg()
+    cfg.experiment_name = "bpx_jump_directional"
+    cfg.max_iterations = 12_000
+    return cfg
