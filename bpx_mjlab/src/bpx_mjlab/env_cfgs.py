@@ -5,11 +5,9 @@ from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
 from mjlab.sensor import ContactMatch, ContactSensorCfg
-from mjlab.terrains.config import ROUGH_TERRAINS_CFG
 from mjlab.tasks.velocity import mdp
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
 from mjlab.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
-from dataclasses import replace
 
 from bpx_mjlab import jump_mdp
 from bpx_mjlab.bpx.bpx_constants import (
@@ -17,6 +15,16 @@ from bpx_mjlab.bpx.bpx_constants import (
     FOOT_GEOMS,
     FOOT_SITES,
     get_bpx_robot_cfg,
+)
+
+
+RAYCAST_SENSOR_NAMES = ("terrain_scan", "foot_height_scan")
+RAYCAST_TERM_NAMES = ("height_scan", "foot_height", "foot_height_scan")
+RAYCAST_PARAM_KEYS = (
+    "height_sensor_name",
+    "sensor_name",
+    "raycast_sensor_name",
+    "terrain_sensor_name",
 )
 
 
@@ -53,9 +61,37 @@ def _safe_set_asset_names(term, field_name: str, names: tuple[str, ...]) -> bool
     return False
 
 
-def _safe_pop_term(term_dict, key: str) -> None:
-    if term_dict is not None and key in term_dict:
-        term_dict.pop(key, None)
+def _term_references_raycast(term_name: str, term_cfg) -> bool:
+    params = getattr(term_cfg, "params", {})
+    if term_name in RAYCAST_TERM_NAMES:
+        return True
+    if not isinstance(params, dict):
+        return False
+    if any(params.get(key) in RAYCAST_SENSOR_NAMES for key in RAYCAST_PARAM_KEYS):
+        return True
+    return any(value in RAYCAST_SENSOR_NAMES for value in params.values())
+
+
+def _remove_raycast_dependencies(cfg: ManagerBasedRlEnvCfg) -> None:
+    cfg.scene.sensors = tuple(
+        sensor
+        for sensor in (cfg.scene.sensors or ())
+        if sensor.name not in RAYCAST_SENSOR_NAMES
+    )
+
+    for obs_group in cfg.observations.values():
+        terms = getattr(obs_group, "terms", None)
+        if not isinstance(terms, dict):
+            continue
+        for term_name, term_cfg in list(terms.items()):
+            if _term_references_raycast(term_name, term_cfg):
+                terms.pop(term_name, None)
+
+    for reward_name, term_cfg in list(cfg.rewards.items()):
+        if _term_references_raycast(reward_name, term_cfg):
+            cfg.rewards.pop(reward_name, None)
+
+    cfg.curriculum.pop("terrain_levels", None)
 
 
 def bpx_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
@@ -82,61 +118,8 @@ def bpx_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     cfg.scene.terrain.terrain_type = "plane"
     cfg.scene.terrain.terrain_generator = None
 
-    # 平地训练不需要 raycast 扫描。
-    # 默认 velocity task 里可能有 terrain_scan / foot_height_scan。
-    # BPX 当前没有给这些 raycast sensor 配 frame，保留会导致：
-    # RuntimeError: stack expects a non-empty TensorList
-    cfg.scene.sensors = tuple(
-        s for s in (cfg.scene.sensors or ())
-        if s.name not in ("terrain_scan", "foot_height_scan")
-    )
-
-    # 同时删除依赖这些 raycast sensor 的 observation term。
-    for obs_group in cfg.observations.values():
-        terms = getattr(obs_group, "terms", None)
-        if not isinstance(terms, dict):
-            continue
-
-        for term_name, term_cfg in list(terms.items()):
-            params = getattr(term_cfg, "params", {})
-            sensor_name = params.get("sensor_name") if isinstance(params, dict) else None
-
-            if (
-                term_name in ("height_scan", "foot_height", "foot_height_scan")
-                or sensor_name in ("terrain_scan", "foot_height_scan")
-            ):
-                terms.pop(term_name, None)
-
-    cfg.curriculum.pop("terrain_levels", None)
-
-    # 删除仍然引用 raycast sensor 的 reward term。
-    # 只把 weight 设成 0 不够，因为 RewardManager 会先初始化 term。
-    for reward_name, term_cfg in list(cfg.rewards.items()):
-        params = getattr(term_cfg, "params", {})
-        if not isinstance(params, dict):
-            continue
-
-        should_remove = False
-
-        # 常见显式字段。
-        for key in (
-            "height_sensor_name",
-            "sensor_name",
-            "raycast_sensor_name",
-            "terrain_sensor_name",
-        ):
-            if params.get(key) in ("terrain_scan", "foot_height_scan"):
-                should_remove = True
-
-        # 兜底：params 里任何值直接等于这两个名字，也删。
-        for value in params.values():
-            if value in ("terrain_scan", "foot_height_scan"):
-                should_remove = True
-
-        if should_remove:
-            print(f"remove reward term using raycast sensor: {reward_name}")
-            cfg.rewards.pop(reward_name, None)
-
+    # BPX 平地/跳跃任务不使用 raycast，统一静默剥离默认 velocity 配置里的 raycast 依赖。
+    _remove_raycast_dependencies(cfg)
 
     # 四个脚尖接触传感器。
     feet_ground_cfg = ContactSensorCfg(
@@ -562,92 +545,5 @@ def bpx_jump_directional_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         func=jump_mdp.lateral_velocity_penalty,
         weight=-0.35,
     )
-
-    return cfg
-
-
-def bpx_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
-    cfg = bpx_flat_env_cfg(play=play)
-
-    from mjlab.managers.curriculum_manager import CurriculumTermCfg
-    from mjlab.tasks.velocity import mdp as vel_mdp
-
-    assert cfg.scene.terrain is not None
-    cfg.scene.terrain.terrain_type = "generator"
-    cfg.scene.terrain.terrain_generator = replace(ROUGH_TERRAINS_CFG)
-    cfg.scene.terrain.max_init_terrain_level = 1
-    cfg.scene.extent = 3.0
-
-    cfg.sim.nconmax = 256
-    cfg.sim.njmax = 2000
-    cfg.sim.contact_sensor_maxmatch = 128
-
-    bad_sensor_names = (
-        "terrain_scan",
-        "foot_height_scan",
-    )
-    bad_keywords = (
-        "terrain_scan",
-        "foot_height_scan",
-        "height_scan",
-        "foot_height",
-    )
-
-    cfg.scene.sensors = tuple(
-        s for s in (cfg.scene.sensors or ())
-        if s.name not in bad_sensor_names
-    )
-
-    for obs_group in cfg.observations.values():
-        terms = getattr(obs_group, "terms", None)
-        if not isinstance(terms, dict):
-            continue
-
-        for term_name, term_cfg in list(terms.items()):
-            params = getattr(term_cfg, "params", {})
-            func = getattr(term_cfg, "func", "")
-            text = str(term_name) + " " + str(params) + " " + str(func)
-
-            if any(keyword in text for keyword in bad_keywords):
-                terms.pop(term_name, None)
-
-    for reward_name, term_cfg in list(cfg.rewards.items()):
-        params = getattr(term_cfg, "params", {})
-        func = getattr(term_cfg, "func", "")
-        text = str(reward_name) + " " + str(params) + " " + str(func)
-
-        if any(keyword in text for keyword in bad_keywords):
-            cfg.rewards.pop(reward_name, None)
-
-    cfg.curriculum["terrain_levels"] = CurriculumTermCfg(
-        func=vel_mdp.terrain_levels_vel,
-        params={"command_name": "twist"},
-    )
-    cfg.curriculum.pop("command_vel", None)
-
-    cmd = cfg.commands["twist"]
-    assert isinstance(cmd, UniformVelocityCommandCfg)
-    cmd.ranges.lin_vel_x = (-0.35, 1.0)
-    cmd.ranges.lin_vel_y = (-0.2, 0.2)
-    cmd.ranges.ang_vel_z = (-0.45, 0.45)
-
-    if hasattr(cmd, "rel_standing_envs"):
-        cmd.rel_standing_envs = 0.02
-
-    if hasattr(cmd, "rel_forward_envs"):
-        cmd.rel_forward_envs = 0.5
-
-    if hasattr(cmd, "resampling_time_range"):
-        cmd.resampling_time_range = (4.0, 8.0)
-
-    cfg.events.pop("push_robot", None)
-
-    if play:
-        cfg.episode_length_s = int(1e9)
-
-        if "actor" in cfg.observations:
-            cfg.observations["actor"].enable_corruption = False
-
-        cfg.events.pop("push_robot", None)
 
     return cfg
